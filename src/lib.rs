@@ -172,22 +172,25 @@ pub unsafe extern "C" fn qmldiff_is_modified(file_name: *const c_char) -> bool {
         .any(|e| e.destination == ObjectToChange::File(file_name.clone()))
 }
 
-fn save_file_in_directory(file_name_ptr: *const std::os::raw::c_char, raw_contents: *const std::os::raw::c_char, contents_size: usize, directory: &str) {
+fn save_file_in_directory(file_name: String, raw_contents: *const c_char, contents_size: usize, directory: &str) {
     // Convert C string pointers to Rust strings
-    let file_name = unsafe { CStr::from_ptr(file_name_ptr).to_str().unwrap() };
     let contents = unsafe {
-        std::slice::from_raw_parts(raw_contents as *const u8, contents_size)
+        std::slice::from_raw_parts(raw_contents, contents_size)
     };
 
     // Create the directory if it doesn't exist
     let dir_path = std::path::Path::new(directory);
-    if let Err(e) = std::fs::create_dir_all(dir_path) {
-        eprintln!("Failed to create directory '{}': {}", directory, e);
+    
+    let filename = std::path::Path::new(file_name);
+    let dir = filename.parent().unwrap().strip_prefix("/").unwrap();
+    
+    if let Err(e) = std::fs::create_dir_all(dir_path.join(dir)) {
+        eprintln!("Failed to create directory '{}': {}", dir_path.join(dir).display(), e);
         return;
     }
 
     // Construct the full file path
-    let file_path = dir_path.join(file_name);
+    let file_path = dir_path.join(dir).join(filename.file_name().unwrap())
 
     // Write the contents to the file
     if let Err(e) = std::fs::write(&file_path, contents) {
